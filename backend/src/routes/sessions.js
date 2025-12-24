@@ -451,71 +451,76 @@ router.post('/:sessionId/share/email', async (req, res) => {
 });
 
 const kickoffProcessing = async (sessionId) => {
-  const audioResult = await query(
-    'SELECT * FROM audio_recordings WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1',
-    [sessionId]
-  );
-  const audioRow = audioResult.rows[0];
-  if (!audioRow) throw new Error(`No audio recording found for session ${sessionId}`);
-
-  const sessionResult = await query('SELECT title FROM sessions WHERE id = $1', [sessionId]);
-  const title = sessionResult.rows?.[0]?.title || null;
-
-  const { transcriptSegments, summary, resources, transcriptLanguage } = await generateOutputsFromAudio({
-    sessionId,
-    audioFileUrl: audioRow.file_url,
-    durationSeconds: audioRow.duration_seconds,
-    title
-  });
-
-  const client = await getClient();
   try {
-    await client.query('BEGIN');
-    await client.query('DELETE FROM transcript_segments WHERE session_id = $1', [sessionId]);
-
-    for (const seg of transcriptSegments) {
-      await client.query(
-        `INSERT INTO transcript_segments (session_id, start_time_seconds, end_time_seconds, text)
-         VALUES ($1, $2, $3, $4)`,
-        [sessionId, seg.start_time_seconds, seg.end_time_seconds, seg.text]
-      );
-    }
-
-    await client.query(
-      `INSERT INTO summaries (session_id, short_summary, detailed_summary, key_points_json, action_items_json, highlights_json, language)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (session_id) DO UPDATE
-       SET short_summary = $2, detailed_summary = $3, key_points_json = $4, action_items_json = $5, highlights_json = $6, language = $7`,
-      [
-        sessionId,
-        summary.short_summary,
-        summary.detailed_summary,
-        JSON.stringify(summary.key_points),
-        JSON.stringify(summary.action_items),
-        JSON.stringify(summary.highlights ?? []),
-        summary.language ?? null
-      ]
+    const audioResult = await query(
+      'SELECT * FROM audio_recordings WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [sessionId]
     );
+    const audioRow = audioResult.rows[0];
+    if (!audioRow) throw new Error(`No audio recording found for session ${sessionId}`);
 
-    await client.query('DELETE FROM resources WHERE session_id = $1', [sessionId]);
-    for (const resource of resources) {
+    const sessionResult = await query('SELECT title FROM sessions WHERE id = $1', [sessionId]);
+    const title = sessionResult.rows?.[0]?.title || null;
+
+    const { transcriptSegments, summary, resources, transcriptLanguage } = await generateOutputsFromAudio({
+      sessionId,
+      audioFileUrl: audioRow.file_url,
+      durationSeconds: audioRow.duration_seconds,
+      title
+    });
+
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM transcript_segments WHERE session_id = $1', [sessionId]);
+
+      for (const seg of transcriptSegments) {
+        await client.query(
+          `INSERT INTO transcript_segments (session_id, start_time_seconds, end_time_seconds, text)
+           VALUES ($1, $2, $3, $4)`,
+          [sessionId, seg.start_time_seconds, seg.end_time_seconds, seg.text]
+        );
+      }
+
       await client.query(
-        `INSERT INTO resources (session_id, title, url, source_name, description) VALUES ($1, $2, $3, $4, $5)`,
-        [sessionId, resource.title, resource.url, resource.source_name, resource.description]
+        `INSERT INTO summaries (session_id, short_summary, detailed_summary, key_points_json, action_items_json, highlights_json, language)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (session_id) DO UPDATE
+         SET short_summary = $2, detailed_summary = $3, key_points_json = $4, action_items_json = $5, highlights_json = $6, language = $7`,
+        [
+          sessionId,
+          summary.short_summary,
+          summary.detailed_summary,
+          JSON.stringify(summary.key_points),
+          JSON.stringify(summary.action_items),
+          JSON.stringify(summary.highlights ?? []),
+          summary.language ?? null
+        ]
       );
-    }
 
-    await client.query(
-      'UPDATE sessions SET status = $1, transcript_language = $2, summary_language = COALESCE($3, summary_language) WHERE id = $4',
-      ['ready', transcriptLanguage, summary.language ?? null, sessionId]
-    );
-    await client.query('COMMIT');
+      await client.query('DELETE FROM resources WHERE session_id = $1', [sessionId]);
+      for (const resource of resources) {
+        await client.query(
+          `INSERT INTO resources (session_id, title, url, source_name, description) VALUES ($1, $2, $3, $4, $5)`,
+          [sessionId, resource.title, resource.url, resource.source_name, resource.description]
+        );
+      }
+
+      await client.query(
+        'UPDATE sessions SET status = $1, transcript_language = $2, summary_language = COALESCE($3, summary_language) WHERE id = $4',
+        ['ready', transcriptLanguage, summary.language ?? null, sessionId]
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      await query('UPDATE sessions SET status = $1 WHERE id = $2', ['failed', sessionId]);
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
-    await client.query('ROLLBACK');
     await query('UPDATE sessions SET status = $1 WHERE id = $2', ['failed', sessionId]);
     throw err;
-  } finally {
-    client.release();
   }
 
   indexSessionTranscript(sessionId).catch((err) => {

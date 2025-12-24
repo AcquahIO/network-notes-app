@@ -46,16 +46,25 @@ const openaiFetchJson = async (path, { method = 'GET', headers = {}, body, timeo
 
 export const openaiEnabled = () => Boolean(process.env.OPENAI_API_KEY);
 
+const getTranscribeResponseFormat = (model) => {
+  const normalized = String(model || '').toLowerCase();
+  if (normalized.includes('whisper')) return 'verbose_json';
+  return 'json';
+};
+
 export const transcribeAudioFile = async ({ filePath, fileName = 'audio.m4a', mimeType = 'audio/mp4' }) => {
   const { transcribeModel, timeoutMs } = getConfig();
   const data = await fs.readFile(filePath);
+  const responseFormat = getTranscribeResponseFormat(transcribeModel);
 
   const form = new FormData();
   form.append('model', transcribeModel);
   form.append('file', new Blob([data], { type: mimeType }), fileName);
-  form.append('response_format', 'verbose_json');
+  form.append('response_format', responseFormat);
   form.append('temperature', '0');
-  form.append('timestamp_granularities[]', 'segment');
+  if (responseFormat === 'verbose_json') {
+    form.append('timestamp_granularities[]', 'segment');
+  }
 
   const json = await openaiFetchJson('/v1/audio/transcriptions', {
     method: 'POST',
