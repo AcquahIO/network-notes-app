@@ -15,7 +15,7 @@
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>API_BASE_URL</key>
-    <string>https://network-notes-app-backend.herokuapp.com</string>
+    <string>https://network-notes-app-backend-99c3b835cf7b.herokuapp.com</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
