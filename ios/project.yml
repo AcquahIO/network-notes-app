@@ -1,0 +1,19 @@
+name: ConferenceNoteAI
+options:
+  bundleIdPrefix: com.example
+settings:
+  SWIFT_VERSION: 5.9
+  IPHONEOS_DEPLOYMENT_TARGET: 17.0
+targets:
+  ConferenceNoteAI:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ConferenceNoteAI
+    resources:
+      - path: ConferenceNoteAI/Resources
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.example.conferencenoteai
+      INFOPLIST_FILE: ConferenceNoteAI/Resources/Info.plist
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

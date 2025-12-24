@@ -1,0 +1,15 @@
+# Node
+backend/node_modules
+backend/.env
+backend/uploads
+
+# iOS / Xcode
+*.xcworkspace
+DerivedData
+.build
+Pods
+*.xcuserstate
+*.xcuserdatad
+.DS_Store
+
+ios/.derivedData
