@@ -12,12 +12,14 @@ final class AuthViewModel: ObservableObject {
 
     init() {
         if KeychainStorage.shared.loadToken(for: "ConferenceNoteAI.jwt") != nil {
+            api.disableDemoMode()
             isAuthenticated = true
         }
     }
 
     func login() async {
         do {
+            api.disableDemoMode()
             let result = try await api.login(email: email, password: password)
             api.setToken(result.token)
             user = result.user
@@ -29,6 +31,7 @@ final class AuthViewModel: ObservableObject {
 
     func register() async {
         do {
+            api.disableDemoMode()
             let result = try await api.register(email: email, password: password)
             api.setToken(result.token)
             user = result.user
@@ -39,6 +42,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func logout() {
+        api.disableDemoMode()
         api.clearToken()
         user = nil
         isAuthenticated = false
