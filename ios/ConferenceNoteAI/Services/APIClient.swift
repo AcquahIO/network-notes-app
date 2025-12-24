@@ -5,7 +5,14 @@ final class APIClient {
     static let shared = APIClient()
     private init() {}
 
-    private let baseURL = URL(string: "http://localhost:4000")!
+    private let baseURL: URL = {
+        if let value = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
+           !value.isEmpty,
+           let url = URL(string: value) {
+            return url
+        }
+        return URL(string: "http://localhost:4000")!
+    }()
     private var isDemo = false
     private var demoStore: [String: SessionDetail] = [:]
     private let decoder: JSONDecoder = {
