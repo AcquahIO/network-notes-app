@@ -144,8 +144,8 @@ struct SpeakerMetadata: Codable {
 
 struct SpeakerInfo: Codable, Identifiable {
     var id: String { name + (role ?? "") }
-    let name: String
-    let role: String?
+    var name: String
+    var role: String?
 }
 
 enum ChatRole: String, Codable { case user, assistant }
